@@ -379,6 +379,12 @@ async function pageAsk(id) {
       cache[id] = {};
     } catch (ex) {
       document.getElementById("pending")?.remove();
+      if (ex.message === "Deal not found") {
+        cache[id] = {};
+        await loadDeals();
+        go("/");
+        return;
+      }
       err.hidden = false;
       err.textContent = ex.message;
     }
@@ -584,6 +590,12 @@ async function route() {
     }
     pageHome();
   } catch (ex) {
+    if (ex.message === "Deal not found") {
+      cache = {};
+      await loadDeals().catch(() => {});
+      go("/");
+      return;
+    }
     $app.innerHTML = `<div class="page"><p class="err">${esc(ex.message)}</p></div>`;
   }
 }
