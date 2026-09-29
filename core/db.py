@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 
-_DEFAULT_DB = Path("/tmp/deals.db") if os.environ.get("VERCEL") == "1" else Path(__file__).parent.parent / "data" / "deals.db"
+_DEFAULT_DB = Path(__file__).parent.parent / "data" / "deals.db"
 DB_PATH = Path(os.environ.get("DEAL_INTEL_DB", str(_DEFAULT_DB)))
 SCHEMA_PATH = Path(__file__).parent.parent / "db" / "schema.sql"
 
@@ -14,13 +14,6 @@ def get_conn():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    has_deals_table = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'deals'"
-    ).fetchone()
-    if not has_deals_table:
-        with open(SCHEMA_PATH) as schema_file:
-            conn.executescript(schema_file.read())
-        conn.commit()
     return conn
 
 

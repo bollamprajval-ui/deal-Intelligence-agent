@@ -40,7 +40,7 @@ Provider options:
 - `USE_OLLAMA=0` — disable the local provider for tests or fallback mode.
 - `DEAL_INTEL_DISABLE_SCHEDULER=1` — skip background file polling.
 
-Data stays on this machine: `data/deals.db`. On Vercel, the app uses `/tmp` so writes work inside a serverless instance; use a hosted database before relying on deployment persistence across cold starts.
+Data stays on this machine: `data/deals.db`.
 
 ## How to use it
 
