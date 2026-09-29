@@ -1,0 +1,8 @@
+fastapi
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+lancedb
+ollama
+sentence-transformers
+uvicorn
