@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+data/deals.db
+data/*.db-shm
+data/*.db-wal
+file.jpe
+.vercel/
