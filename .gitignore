@@ -10,3 +10,5 @@ data/*.db-shm
 data/*.db-wal
 file.jpe
 .vercel/
+.vercel
+.env*

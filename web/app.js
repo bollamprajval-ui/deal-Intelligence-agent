@@ -10,11 +10,12 @@ async function api(path, options = {}) {
   });
   if (!res.ok) {
     let detail = res.statusText;
+    const raw = await res.text();
     try {
-      const body = await res.json();
+      const body = JSON.parse(raw);
       detail = body.detail || JSON.stringify(body);
     } catch (_) {
-      detail = await res.text();
+      detail = raw || detail;
     }
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
