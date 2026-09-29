@@ -14,6 +14,13 @@ def get_conn():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    has_deals_table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'deals'"
+    ).fetchone()
+    if not has_deals_table:
+        with open(SCHEMA_PATH) as schema_file:
+            conn.executescript(schema_file.read())
+        conn.commit()
     return conn
 
 
