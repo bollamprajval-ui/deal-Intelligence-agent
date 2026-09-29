@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 
-_DEFAULT_DB = Path(__file__).parent.parent / "data" / "deals.db"
+_DEFAULT_DB = Path("/tmp/deals.db") if os.environ.get("VERCEL") == "1" else Path(__file__).parent.parent / "data" / "deals.db"
 DB_PATH = Path(os.environ.get("DEAL_INTEL_DB", str(_DEFAULT_DB)))
 SCHEMA_PATH = Path(__file__).parent.parent / "db" / "schema.sql"
 

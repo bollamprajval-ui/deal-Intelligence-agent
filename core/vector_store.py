@@ -12,10 +12,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
-STORE_PATH = Path(os.environ.get(
-    "DEAL_INTEL_VECTORS",
-    str(Path(__file__).parent.parent / "data" / "hindsight_vectors.jsonl"),
-))
+_DEFAULT_STORE = Path("/tmp/hindsight_vectors.jsonl") if os.environ.get("VERCEL") == "1" else Path(__file__).parent.parent / "data" / "hindsight_vectors.jsonl"
+STORE_PATH = Path(os.environ.get("DEAL_INTEL_VECTORS", str(_DEFAULT_STORE)))
 
 
 def _embed(text: str) -> Counter:
