@@ -6,7 +6,7 @@ from urllib.request import Request, urlopen
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto").lower()
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 _cached_ok = None
 _cached_model = None

@@ -15,7 +15,7 @@ Local deal tracker: one live document per deal, one AI per deal (Ollama), hindsi
    ```text
    LLM_PROVIDER=gemini
    GEMINI_API_KEY=<your Google AI Studio key>
-   GEMINI_MODEL=gemini-2.5-flash-lite
+   GEMINI_MODEL=gemini-3.5-flash-lite
    ```
 
 2. Python 3.11+ (3.13 works). From this folder:
@@ -36,7 +36,7 @@ Provider options:
 - `LLM_PROVIDER=ollama` — force the local Ollama provider.
 - `LLM_PROVIDER=gemini` — force Gemini; requires `GEMINI_API_KEY`.
 - `OLLAMA_MODEL=qwen3:8b` — pick a specific local model (slower if large).
-- `GEMINI_DISABLE_THINKING=1` — disable Gemini 2.5 thinking for faster direct responses (default).
+- `GEMINI_DISABLE_THINKING=1` — disable Gemini thinking when supported for faster direct responses (default).
 - `USE_OLLAMA=0` — disable the local provider for tests or fallback mode.
 - `DEAL_INTEL_DISABLE_SCHEDULER=1` — skip background file polling.
 

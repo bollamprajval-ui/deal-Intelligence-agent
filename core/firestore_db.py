@@ -82,6 +82,9 @@ def _commit_seed(rows_by_table):
 
 
 def init_db():
+    migration_ref = _collection("app_meta").document("sqlite_seed_v1")
+    if migration_ref.get().exists:
+        return
     db_path = Path(__file__).parent.parent / "data" / "deals.db"
     if not db_path.exists():
         return
@@ -107,6 +110,7 @@ def init_db():
                 missing[table].append(item)
     if any(missing.values()):
         _commit_seed(missing)
+    migration_ref.set({"completed_at": _now(), "source": "bundled_sqlite"})
 
 
 def get_conn():

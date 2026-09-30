@@ -2,6 +2,9 @@ const $app = document.getElementById("app");
 let deals = [];
 let health = { provider: "ollama", available: false, ollama: false, model: null, detail: "" };
 let cache = {};
+let dealsLoaded = false;
+let healthLoaded = false;
+let hindsightLibrary = null;
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -55,20 +58,38 @@ function when(iso) {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-async function loadDeals() {
+async function loadDeals(force = false) {
+  if (dealsLoaded && !force) return deals;
   deals = await api("/deals");
+  dealsLoaded = true;
+  return deals;
 }
 
-async function loadDoc(id) {
-  if (!cache[id]) cache[id] = {};
-  const [doc, chat, reasoning, hindsight] = await Promise.all([
-    api(`/deals/${id}`),
-    api(`/deals/${id}/chat`),
-    api(`/deals/${id}/reasoning`),
-    api(`/deals/${id}/hindsight`),
-  ]);
-  cache[id] = { ...cache[id], doc, chat, reasoning, hindsight };
-  return cache[id];
+async function loadHealth() {
+  if (!healthLoaded) {
+    health = await api("/health").catch(() => health);
+    healthLoaded = true;
+  }
+  return health;
+}
+
+async function loadHindsightLibrary() {
+  if (hindsightLibrary === null) {
+    hindsightLibrary = await api("/hindsight").catch(() => []);
+  }
+  return hindsightLibrary;
+}
+
+async function loadDoc(id, { chat = false, reasoning = false, hindsight = false } = {}) {
+  const stored = cache[id] || (cache[id] = {});
+  const requests = {};
+  if (!stored.doc) requests.doc = api(`/deals/${id}`);
+  if (chat && !("chat" in stored)) requests.chat = api(`/deals/${id}/chat`);
+  if (reasoning && !("reasoning" in stored)) requests.reasoning = api(`/deals/${id}/reasoning`);
+  if (hindsight && !("hindsight" in stored)) requests.hindsight = api(`/deals/${id}/hindsight`);
+  const values = await Promise.all(Object.values(requests));
+  Object.keys(requests).forEach((key, index) => { stored[key] = values[index]; });
+  return stored;
 }
 
 function pct(score) {
@@ -297,7 +318,7 @@ function pageNew() {
           }),
         });
       }
-      await loadDeals();
+      await loadDeals(true);
       go(`/d/${created.deal_id}/ask`);
     } catch (ex) {
       err.hidden = false;
@@ -312,7 +333,9 @@ async function pageAsk(id) {
     tab: "ask",
     title: deals.find((d) => d.id === id)?.name,
   });
-  const { chat, doc, hindsight } = await loadDoc(id);
+  const routeHash = location.hash;
+  const { chat = [], doc, hindsight = [] } = await loadDoc(id, { chat: true, hindsight: true });
+  if (location.hash !== routeHash) return;
   const msgs = (chat || [])
     .map(
       (m) => `<div class="msg ${m.role === "user" ? "user" : "ai"}">
@@ -381,7 +404,7 @@ async function pageAsk(id) {
       document.getElementById("pending")?.remove();
       if (ex.message === "Deal not found") {
         cache[id] = {};
-        await loadDeals();
+        await loadDeals(true);
         go("/");
         return;
       }
@@ -456,7 +479,7 @@ async function pageAdd(id) {
         });
       }
       cache[id] = {};
-      await loadDeals();
+      await loadDeals(true);
       go(`/d/${id}/doc`);
     } catch (ex) {
       err.hidden = false;
@@ -471,7 +494,9 @@ async function pageDoc(id) {
     tab: "doc",
     title: deals.find((d) => d.id === id)?.name,
   });
-  const { doc, reasoning } = await loadDoc(id);
+  const routeHash = location.hash;
+  const { doc, reasoning = [] } = await loadDoc(id, { reasoning: true });
+  if (location.hash !== routeHash) return;
   layout(
     `<div class="doc-page">
       <p class="hint">Six blocks. Same file the AI reads on Ask.</p>
@@ -487,10 +512,12 @@ async function pageHindsight(id) {
     tab: "hindsight",
     title: deals.find((d) => d.id === id)?.name,
   });
-  const [{ hindsight, doc }, library] = await Promise.all([
-    loadDoc(id),
-    api("/hindsight").catch(() => []),
+  const routeHash = location.hash;
+  const [{ hindsight = [], doc }, library] = await Promise.all([
+    loadDoc(id, { hindsight: true }),
+    loadHindsightLibrary(),
   ]);
+  if (location.hash !== routeHash) return;
   const libraryCards = (library || []).map((h) => ({
     name: h.name,
     outcome: h.outcome,
@@ -562,7 +589,8 @@ async function pageEnd(id) {
         }),
       });
       cache[id] = {};
-      await loadDeals();
+      await loadDeals(true);
+      hindsightLibrary = null;
       go(`/d/${id}/hindsight`);
     } catch (ex) {
       err.hidden = false;
@@ -573,8 +601,7 @@ async function pageEnd(id) {
 
 async function route() {
   try {
-    health = await api("/health").catch(() => health);
-    await loadDeals();
+    await Promise.all([loadHealth(), loadDeals()]);
     const r = parseHash();
     if (r.page === "new") return pageNew();
     if (r.id) {
@@ -592,7 +619,7 @@ async function route() {
   } catch (ex) {
     if (ex.message === "Deal not found") {
       cache = {};
-      await loadDeals().catch(() => {});
+      await loadDeals(true).catch(() => {});
       go("/");
       return;
     }
