@@ -40,6 +40,14 @@ Provider options:
 - `USE_OLLAMA=0` — disable the local provider for tests or fallback mode.
 - `DEAL_INTEL_DISABLE_SCHEDULER=1` — skip background file polling.
 
+Database options:
+
+- Local development defaults to SQLite at `data/deals.db`.
+- Set `DATABASE_PROVIDER=firestore` and `FIREBASE_PROJECT_ID=dealagent-b1e72` to use Firebase Firestore.
+- Local Firestore authentication uses `GOOGLE_APPLICATION_CREDENTIALS` pointing to a service-account JSON file. Vercel uses the secret `FIREBASE_SERVICE_ACCOUNT_JSON` instead.
+- Firestore imports missing predefined records from the bundled SQLite database once, without replacing existing cloud records.
+- Never commit Firebase service-account JSON files or API keys.
+
 Data stays on this machine: `data/deals.db`.
 
 ## How to use it

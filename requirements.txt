@@ -5,3 +5,4 @@ google-auth-oauthlib
 ollama
 httpx2
 uvicorn
+firebase-admin

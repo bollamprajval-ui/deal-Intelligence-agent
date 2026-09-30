@@ -4,7 +4,7 @@ snapshot, people, log, reviews, prior reasoning on this deal, plus
 hindsight from closed deals as comparison — never mixed with another live deal's chat.
 """
 from core.db import (
-    get_conn, new_id, get_deal, get_deal_timeline, get_stage_history,
+    get_chat_history as read_chat_history, add_chat_message, get_deal, get_deal_timeline, get_stage_history,
     get_people_for_deal, list_reviews, list_signals,
     add_reasoning_node, get_latest_reasoning,
 )
@@ -53,22 +53,11 @@ def chat(deal_id: str, user_message: str) -> str:
 
 
 def get_chat_history(deal_id: str):
-    conn = get_conn()
-    rows = conn.execute(
-        "SELECT * FROM chat_messages WHERE deal_id = ? ORDER BY created_at", (deal_id,)
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    return read_chat_history(deal_id)
 
 
 def _store_message(deal_id: str, role: str, content: str):
-    conn = get_conn()
-    conn.execute(
-        "INSERT INTO chat_messages (id, deal_id, role, content) VALUES (?, ?, ?, ?)",
-        (new_id(), deal_id, role, content),
-    )
-    conn.commit()
-    conn.close()
+    add_chat_message(deal_id, role, content)
 
 
 def _build_prompt(user_message, deal, people, reviews, signals, timeline, stages, hindsight_matches, prior_reasoning) -> str:

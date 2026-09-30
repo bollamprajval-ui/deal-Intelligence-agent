@@ -12,3 +12,5 @@ file.jpe
 .vercel/
 .vercel
 .env*
+*firebase-adminsdk*.json
+*-firebase-adminsdk-*.json

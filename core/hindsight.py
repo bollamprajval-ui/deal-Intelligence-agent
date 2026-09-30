@@ -4,21 +4,17 @@ Two directions, both mandatory (per earlier design decision):
   - retrieve_similar(): every live deal's reasoning step pulls from that store
 """
 import json
-from core.db import get_conn, get_deal_timeline, get_stage_history
+from core.db import (
+    get_deal_timeline, get_deal, list_signals, update_deal_outcome,
+    list_hindsight_records, upsert_hindsight_record,
+)
 from core import vector_store
 
 
 def close_deal(deal_id: str, outcome: str, outcome_reason: str = None):
     """Marks a deal closed and writes it into hindsight. This is the
     mandatory write-back — hindsight decays if any closed deal skips it."""
-    conn = get_conn()
-    conn.execute(
-        "UPDATE deals SET outcome = ?, outcome_reason = ?, updated_at = datetime('now') WHERE id = ?",
-        (outcome, outcome_reason, deal_id),
-    )
-    deal = conn.execute("SELECT * FROM deals WHERE id = ?", (deal_id,)).fetchone()
-    conn.commit()
-    conn.close()
+    deal = update_deal_outcome(deal_id, outcome, outcome_reason)
     if not deal:
         raise ValueError(f"Deal not found: {deal_id}")
 
@@ -46,35 +42,21 @@ def retrieve_similar(deal_id: str, top_k: int = 3):
 
 def list_hindsight_library():
     """Every closed deal written into hindsight — the training set."""
-    conn = get_conn()
-    rows = conn.execute(
-        """SELECT h.deal_id, d.name, h.stage_reached, h.outcome, h.outcome_reason,
-                  h.signal_summary, h.written_at
-           FROM hindsight_records h
-           JOIN deals d ON d.id = h.deal_id
-           ORDER BY h.written_at DESC"""
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    return list_hindsight_records()
 
 
 def _attach_names(hits):
-    conn = get_conn()
     out = []
     for hit in hits:
-        row = conn.execute("SELECT name FROM deals WHERE id = ?", (hit.get("deal_id"),)).fetchone()
+        row = get_deal(hit.get("deal_id"))
         item = dict(hit)
         item["name"] = row["name"] if row else "Closed deal"
         out.append(item)
-    conn.close()
     return out
 
 
 def _signal_summary(deal_id: str) -> dict:
-    conn = get_conn()
-    rows = conn.execute("SELECT signal_type, detail FROM signals WHERE deal_id = ?", (deal_id,)).fetchall()
-    conn.close()
-    return {r["signal_type"]: r["detail"] for r in rows}
+    return {row["signal_type"]: row["detail"] for row in list_signals(deal_id)}
 
 
 def _hindsight_text(name, stage, outcome, reason, signals, timeline) -> str:
@@ -84,14 +66,4 @@ def _hindsight_text(name, stage, outcome, reason, signals, timeline) -> str:
 
 
 def _write_hindsight_row(deal_id, stage, outcome, outcome_reason, signals):
-    conn = get_conn()
-    conn.execute(
-        """INSERT INTO hindsight_records (deal_id, stage_reached, outcome, outcome_reason, signal_summary)
-           VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(deal_id) DO UPDATE SET
-             stage_reached=excluded.stage_reached, outcome=excluded.outcome,
-             outcome_reason=excluded.outcome_reason, signal_summary=excluded.signal_summary""",
-        (deal_id, stage, outcome, outcome_reason, json.dumps(signals)),
-    )
-    conn.commit()
-    conn.close()
+    upsert_hindsight_record(deal_id, stage, outcome, outcome_reason, signals)

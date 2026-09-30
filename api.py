@@ -13,12 +13,12 @@ from pydantic import BaseModel, Field
 
 from core.db import (
     init_db,
+    list_deals as get_deals,
     upsert_deal,
     get_deal,
     get_deal_timeline,
     get_thread,
     get_stage_history,
-    get_conn,
     get_people_for_deal,
     add_person,
     link_person_to_deal,
@@ -114,20 +114,16 @@ def _require_deal(deal_id: str) -> dict:
 
 @app.get("/health")
 def health():
-    return llm_status()
+    status = llm_status()
+    status["database"] = os.environ.get("DATABASE_PROVIDER", "sqlite").lower()
+    return status
 
 
 # --- Deals ---
 
 @app.get("/deals")
 def list_deals():
-    conn = get_conn()
-    rows = conn.execute(
-        """SELECT id, name, stage, outcome, budget, created_at, updated_at
-           FROM deals ORDER BY updated_at DESC"""
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    return get_deals()
 
 
 @app.post("/deals")

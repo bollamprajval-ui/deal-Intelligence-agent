@@ -12,7 +12,7 @@ if/when this runs on a server with a public endpoint.
 """
 import threading
 import time
-from core.db import get_conn
+from core.db import list_open_deals
 
 INTERVAL_SECONDS = 60
 _stop_flag = threading.Event()
@@ -21,11 +21,7 @@ _stop_flag = threading.Event()
 def _poll_loop():
     from main import run_ingest  # deferred import, avoids circular import at module load
     while not _stop_flag.is_set():
-        conn = get_conn()
-        open_deals = conn.execute(
-            "SELECT id FROM deals WHERE outcome IS NULL"
-        ).fetchall()
-        conn.close()
+        open_deals = list_open_deals()
         for row in open_deals:
             run_ingest(row["id"])
         _stop_flag.wait(INTERVAL_SECONDS)

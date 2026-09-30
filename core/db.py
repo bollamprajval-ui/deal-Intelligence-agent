@@ -1,4 +1,5 @@
 """Local SQLite access layer. Everything stays on-device."""
+import json
 import os
 import sqlite3
 import uuid
@@ -321,3 +322,133 @@ def days_since_last_input(deal_id: str):
     except ValueError:
         last = datetime.strptime(last_at[:19], "%Y-%m-%d %H:%M:%S")
     return max(0, (datetime.utcnow() - last).days)
+
+
+def list_deals():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, name, stage, outcome, budget, created_at, updated_at FROM deals ORDER BY updated_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_input_by_message_id(message_id):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT id, deal_id, thread_id FROM inputs WHERE message_id = ?", (message_id,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def list_open_deals():
+    conn = get_conn()
+    rows = conn.execute("SELECT id FROM deals WHERE outcome IS NULL").fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_chat_history(deal_id):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM chat_messages WHERE deal_id = ? ORDER BY created_at", (deal_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def add_chat_message(deal_id, role, content):
+    message_id = new_id()
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO chat_messages (id, deal_id, role, content) VALUES (?, ?, ?, ?)",
+        (message_id, deal_id, role, content),
+    )
+    conn.commit()
+    conn.close()
+    return message_id
+
+
+def add_notification(deal_id, kind, message, input_id=None):
+    notification_id = new_id()
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO notifications (id, deal_id, input_id, kind, message) VALUES (?, ?, ?, ?, ?)",
+        (notification_id, deal_id, input_id, kind, message),
+    )
+    conn.commit()
+    conn.close()
+    return notification_id
+
+
+def list_unread_notifications(deal_id=None):
+    conn = get_conn()
+    if deal_id:
+        rows = conn.execute(
+            "SELECT * FROM notifications WHERE deal_id = ? AND read = 0 ORDER BY created_at DESC", (deal_id,)
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM notifications WHERE read = 0 ORDER BY created_at DESC").fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def mark_notification_read(notification_id):
+    conn = get_conn()
+    conn.execute("UPDATE notifications SET read = 1 WHERE id = ?", (notification_id,))
+    conn.commit()
+    conn.close()
+
+
+def update_deal_outcome(deal_id, outcome, outcome_reason=None):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE deals SET outcome = ?, outcome_reason = ?, updated_at = datetime('now') WHERE id = ?",
+        (outcome, outcome_reason, deal_id),
+    )
+    conn.commit()
+    conn.close()
+    return get_deal(deal_id)
+
+
+def upsert_hindsight_record(deal_id, stage, outcome, outcome_reason, signals):
+    conn = get_conn()
+    conn.execute(
+        """INSERT INTO hindsight_records (deal_id, stage_reached, outcome, outcome_reason, signal_summary)
+           VALUES (?, ?, ?, ?, ?) ON CONFLICT(deal_id) DO UPDATE SET
+           stage_reached=excluded.stage_reached, outcome=excluded.outcome,
+           outcome_reason=excluded.outcome_reason, signal_summary=excluded.signal_summary""",
+        (deal_id, stage, outcome, outcome_reason, json.dumps(signals)),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_hindsight_records():
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT h.deal_id, d.name, h.stage_reached, h.outcome, h.outcome_reason,
+                  h.signal_summary, h.written_at FROM hindsight_records h
+           JOIN deals d ON d.id = h.deal_id ORDER BY h.written_at DESC"""
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+if os.environ.get("DATABASE_PROVIDER", "sqlite").lower() == "firestore":
+    from core import firestore_db as _firestore_db
+
+    for _name in (
+        "init_db", "get_conn", "new_id", "list_deals", "upsert_deal", "add_input",
+        "add_attachment", "add_signal", "log_stage_change", "get_thread",
+        "get_deal_timeline", "find_person_by_email", "add_person", "link_person_to_deal",
+        "get_deals_for_person", "add_reasoning_node", "get_latest_reasoning",
+        "get_reasoning_chain", "get_stage_history", "get_deal", "get_input_by_message_id",
+        "already_ingested", "get_people_for_deal", "set_person_role", "add_review",
+        "list_reviews", "list_signals", "days_since_last_input", "get_chat_history",
+        "add_chat_message", "list_open_deals", "add_notification", "list_unread_notifications",
+        "mark_notification_read", "update_deal_outcome", "upsert_hindsight_record",
+        "list_hindsight_records", "save_hindsight_vector", "get_hindsight_vectors",
+    ):
+        globals()[_name] = getattr(_firestore_db, _name)

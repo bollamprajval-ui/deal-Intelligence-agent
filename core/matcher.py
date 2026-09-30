@@ -11,7 +11,7 @@ Two-step resolution:
 This is what makes ingestion automatic instead of manually wired per item,
 even for the first mail in a deal that isn't a reply to anything yet.
 """
-from core.db import get_conn, find_person_by_email, get_deals_for_person
+from core.db import get_input_by_message_id, find_person_by_email, get_deals_for_person
 
 
 def resolve(deal_id_hint: str, message_id: str = None, in_reply_to: str = None, sender_email: str = None):
@@ -20,18 +20,11 @@ def resolve(deal_id_hint: str, message_id: str = None, in_reply_to: str = None, 
     steps A and B both fail to resolve anything.
     Returns (deal_id, thread_id, parent_input_id, match_reason).
     """
-    conn = get_conn()
-
     # A. Exact match: this item explicitly replies to a known input.
     if in_reply_to:
-        parent = conn.execute(
-            "SELECT id, deal_id, thread_id FROM inputs WHERE message_id = ?", (in_reply_to,)
-        ).fetchone()
+        parent = get_input_by_message_id(in_reply_to)
         if parent:
-            conn.close()
             return parent["deal_id"], parent["thread_id"], parent["id"], "reply_match"
-
-    conn.close()
 
     # B. Sender match: known person, linked to exactly one deal -> confident match.
     #    Linked to multiple deals -> ambiguous, flag for review rather than guess.

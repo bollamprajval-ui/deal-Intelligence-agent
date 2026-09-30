@@ -34,6 +34,10 @@ def _cosine(a: Counter, b: Counter) -> float:
 
 
 def add(deal_id: str, text: str, metadata: dict):
+    if os.environ.get("DATABASE_PROVIDER", "sqlite").lower() == "firestore":
+        from core.firestore_db import save_hindsight_vector
+        save_hindsight_vector(deal_id, text, metadata)
+        return
     STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     record = {"deal_id": deal_id, "text": text, "metadata": metadata}
     with open(STORE_PATH, "a") as f:
@@ -43,14 +47,18 @@ def add(deal_id: str, text: str, metadata: dict):
 def search(text: str, top_k: int = 3):
     """Returns top_k closed-deal hindsight records most similar to `text`,
     each with a similarity score, highest first."""
-    if not STORE_PATH.exists():
+    if os.environ.get("DATABASE_PROVIDER", "sqlite").lower() == "firestore":
+        from core.firestore_db import get_hindsight_vectors
+        records = get_hindsight_vectors()
+    elif STORE_PATH.exists():
+        with open(STORE_PATH) as f:
+            records = [json.loads(line) for line in f]
+    else:
         return []
     query_vec = _embed(text)
     scored = []
-    with open(STORE_PATH) as f:
-        for line in f:
-            record = json.loads(line)
-            score = _cosine(query_vec, _embed(record["text"]))
-            scored.append((score, record))
+    for record in records:
+        score = _cosine(query_vec, _embed(record["text"]))
+        scored.append((score, record))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [{"score": round(s, 3), **r} for s, r in scored[:top_k] if s > 0]
